@@ -799,8 +799,14 @@ impl AcpServerView {
                         } else {
                             None
                         };
+                        let session_list_cwd = session_list.as_ref().and_then(|_| {
+                            connection
+                                .clone()
+                                .downcast::<agent_servers::AcpConnection>()
+                                .map(|acp_connection| acp_connection.root_dir().to_path_buf())
+                        });
                         this.history.update(cx, |history, cx| {
-                            history.set_session_list(session_list, cx);
+                            history.set_session_list(session_list, session_list_cwd, cx);
                         });
 
                         // Check for config options first
@@ -8956,7 +8962,7 @@ pub(crate) mod tests {
         let list_a: Rc<dyn AgentSessionList> =
             Rc::new(StubSessionList::new(vec![session_a.clone()]));
         history.update(cx, |history, cx| {
-            history.set_session_list(Some(list_a), cx);
+            history.set_session_list(Some(list_a), None, cx);
         });
         cx.run_until_parked();
 
@@ -8972,7 +8978,7 @@ pub(crate) mod tests {
         let list_b: Rc<dyn AgentSessionList> =
             Rc::new(StubSessionList::new(vec![session_b.clone()]));
         history.update(cx, |history, cx| {
-            history.set_session_list(Some(list_b), cx);
+            history.set_session_list(Some(list_b), None, cx);
         });
         cx.run_until_parked();
 

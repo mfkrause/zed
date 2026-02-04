@@ -9,7 +9,7 @@ use gpui::{
     App, Entity, EventEmitter, FocusHandle, Focusable, ScrollStrategy, Task,
     UniformListScrollHandle, WeakEntity, Window, uniform_list,
 };
-use std::{fmt::Display, ops::Range, rc::Rc};
+use std::{fmt::Display, ops::Range, path::PathBuf, rc::Rc};
 use text::Bias;
 use time::{OffsetDateTime, UtcOffset};
 use ui::{
@@ -29,6 +29,7 @@ fn thread_title(entry: &AgentSessionInfo) -> &SharedString {
 
 pub struct AcpThreadHistory {
     session_list: Option<Rc<dyn AgentSessionList>>,
+    session_list_cwd: Option<PathBuf>,
     sessions: Vec<AgentSessionInfo>,
     scroll_handle: UniformListScrollHandle,
     selected_index: usize,
@@ -98,6 +99,7 @@ impl AcpThreadHistory {
 
         let mut this = Self {
             session_list: None,
+            session_list_cwd: None,
             sessions: Vec::new(),
             scroll_handle,
             selected_index: 0,
@@ -114,7 +116,7 @@ impl AcpThreadHistory {
             _update_task: Task::ready(()),
             _watch_task: None,
         };
-        this.set_session_list(session_list, cx);
+        this.set_session_list(session_list, None, cx);
         this
     }
 
@@ -158,15 +160,19 @@ impl AcpThreadHistory {
     pub fn set_session_list(
         &mut self,
         session_list: Option<Rc<dyn AgentSessionList>>,
+        cwd: Option<PathBuf>,
         cx: &mut Context<Self>,
     ) {
+        let same_cwd = self.session_list_cwd.as_ref() == cwd.as_ref();
         if let (Some(current), Some(next)) = (&self.session_list, &session_list)
             && Rc::ptr_eq(current, next)
+            && same_cwd
         {
             return;
         }
 
         self.session_list = session_list;
+        self.session_list_cwd = cwd;
         self.sessions.clear();
         self.visible_items.clear();
         self.selected_index = 0;
@@ -260,6 +266,7 @@ impl AcpThreadHistory {
             return;
         };
 
+        let list_cwd = self.session_list_cwd.clone();
         self._update_task = cx.spawn(async move |this, cx| {
             let mut cursor: Option<String> = None;
             let mut is_first_page = true;
@@ -267,6 +274,7 @@ impl AcpThreadHistory {
             loop {
                 let request = AgentSessionListRequest {
                     cursor: cursor.clone(),
+                    cwd: list_cwd.clone(),
                     ..Default::default()
                 };
                 let task = cx.update(|cx| session_list.list_sessions(request, cx));

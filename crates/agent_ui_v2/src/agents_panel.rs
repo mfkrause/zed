@@ -155,7 +155,7 @@ impl AgentsPanel {
                     && let Some(session_list) = connection.session_list(cx)
                 {
                     history_handle.update(cx, |history, cx| {
-                        history.set_session_list(Some(session_list), cx);
+                        history.set_session_list(Some(session_list), None, cx);
                     });
                 }
             });
